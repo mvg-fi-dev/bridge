@@ -29,7 +29,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	s := &api.Server{MixinWebhookSecret: cfg.MixinWebhookSecret}
+	s := &api.Server{DB: dbConn.SQL, PayWindowSeconds: cfg.PayWindowSeconds, MixinBotUserID: cfg.MixinBotUserID, MixinWebhookSecret: cfg.MixinWebhookSecret}
 	s.Register(r)
 
 	log.Printf("bridge-api listening on :%s", cfg.Port)

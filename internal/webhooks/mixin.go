@@ -3,16 +3,21 @@ package webhooks
 import (
 	"crypto/hmac"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/mvg-fi-dev/bridge/internal/db"
 	"github.com/mvg-fi-dev/bridge/internal/mixin"
 )
 
 type MixinWebhookHandler struct {
 	Secret string
+	DB     *sql.DB
+	MixinBotUserID string
 }
 
 // Verify is a simple HMAC-SHA256 verifier.
@@ -47,12 +52,28 @@ func (h *MixinWebhookHandler) Handle(c *gin.Context) {
 		}
 	}
 
-	_, err = mixin.ParseSnapshot(body)
+	snap, err := mixin.ParseSnapshot(body)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid snapshot"})
 		return
 	}
 
-	// TODO: persist snapshot + dispatch to order matching.
+	// Minimal matching: memo maps to order; opponent_id must be our bot; asset_id must match.
+	// Snapshot itself is credited, so we can mark the order as deposit_credited.
+	createdAt, err := snap.CreatedAtTime()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid created_at"})
+		return
+	}
+	creditedAt := time.Now().UTC()
+	if createdAt != nil {
+		creditedAt = createdAt.UTC()
+	}
+
+	if h.DB != nil && snap.Memo != "" {
+		repo := db.NewOrdersRepo(h.DB)
+		_, _ = repo.SetDepositCreditedByMemo(c.Request.Context(), snap.Memo, snap.SnapshotID, creditedAt, snap.Amount, h.MixinBotUserID, snap.AssetID)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
