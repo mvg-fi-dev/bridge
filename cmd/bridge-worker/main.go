@@ -29,34 +29,19 @@ func main() {
 		log.Fatal(err)
 	}
 
-	mixinToken := os.Getenv("MIXIN_API_TOKEN")
-	mixinBase := os.Getenv("MIXIN_API_BASE")
-	if mixinToken == "" {
-		log.Fatal("MIXIN_API_TOKEN is required for snapshot polling")
+	ksPath := os.Getenv("MIXIN_KEYSTORE_PATH")
+	if ksPath == "" {
+		log.Fatal("MIXIN_KEYSTORE_PATH is required for snapshot polling (keystore json from Mixin dashboard)")
 	}
-
-	client := mixin.NewClient(mixinBase)
-	client.Token = mixinToken
-
-	// Preferred auth: keystore/jwt
-	if ksPath := os.Getenv("MIXIN_KEYSTORE_PATH"); ksPath != "" {
-		ks, err := mixin.LoadKeystore(ksPath)
-		if err != nil {
-			log.Fatalf("load keystore: %v", err)
-		}
-		client.UID = ks.UserID
-		client.SID = ks.SessionID
-		client.PrivateKey = ks.PrivateKey
-		client.Token = "" // use jwt
+	ksBytes, err := os.ReadFile(ksPath)
+	if err != nil {
+		log.Fatalf("read keystore: %v", err)
 	}
-	if uid := os.Getenv("MIXIN_UID"); uid != "" {
-		client.UID = uid
-		client.SID = os.Getenv("MIXIN_SID")
-		client.PrivateKey = os.Getenv("MIXIN_PRIVATE_KEY")
-		if client.UID != "" && client.SID != "" && client.PrivateKey != "" {
-			client.Token = ""
-		}
+	ks, err := mixin.ParseSafeKeystore(ksBytes)
+	if err != nil {
+		log.Fatalf("parse keystore: %v", err)
 	}
+	client := mixin.NewSDKClient(ks)
 	state := db.NewStateRepo(dbConn.SQL)
 	snapRepo := db.NewSnapshotsRepo(dbConn.SQL)
 	ordersRepo := db.NewOrdersRepo(dbConn.SQL)
@@ -76,7 +61,7 @@ func main() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		offset, _, _ := state.Get(ctx, cursorKey)
 
-		snaps, err := client.ListSnapshots(ctx, limit, offset, "")
+		snaps, err := client.ListSafeSnapshots(ctx, limit, offset)
 		if err != nil {
 			log.Printf("poll error: %v", err)
 			cancel()
@@ -88,20 +73,17 @@ func main() {
 		// We'll process from oldest to newest within this batch.
 		for i := len(snaps) - 1; i >= 0; i-- {
 			s := snaps[i]
-			raw, _ := json.Marshal(map[string]any{"data": s})
-			inserted, err := snapRepo.InsertIfNew(ctx, s.SnapshotID, time.Now().UTC(), string(raw), &s)
+			internalSnap := mixin.SafeSnapshotToInternal(s)
+			raw, _ := json.Marshal(map[string]any{"data": internalSnap})
+			inserted, err := snapRepo.InsertIfNew(ctx, s.SnapshotID, time.Now().UTC(), string(raw), internalSnap)
 			if err != nil {
 				log.Printf("insert snapshot err=%v", err)
 				continue
 			}
 			if inserted {
 				// Try match order by memo for Mixin-internal payments.
-				if s.Memo != "" && cfg.MixinBotUserID != "" {
-					ct, _ := s.CreatedAtTime()
-					creditedAt := time.Now().UTC()
-					if ct != nil {
-						creditedAt = ct.UTC()
-					}
+				if s.Memo != "" {
+					creditedAt := s.CreatedAt.UTC()
 					_, _ = ordersRepo.SetDepositCreditedByMemo(ctx, s.Memo, s.SnapshotID, creditedAt, s.Amount, s.AssetID)
 				}
 			}
