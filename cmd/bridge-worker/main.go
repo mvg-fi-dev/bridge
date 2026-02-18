@@ -35,7 +35,28 @@ func main() {
 		log.Fatal("MIXIN_API_TOKEN is required for snapshot polling")
 	}
 
-	client := mixin.NewClient(mixinBase, mixinToken)
+	client := mixin.NewClient(mixinBase)
+	client.Token = mixinToken
+
+	// Preferred auth: keystore/jwt
+	if ksPath := os.Getenv("MIXIN_KEYSTORE_PATH"); ksPath != "" {
+		ks, err := mixin.LoadKeystore(ksPath)
+		if err != nil {
+			log.Fatalf("load keystore: %v", err)
+		}
+		client.UID = ks.UserID
+		client.SID = ks.SessionID
+		client.PrivateKey = ks.PrivateKey
+		client.Token = "" // use jwt
+	}
+	if uid := os.Getenv("MIXIN_UID"); uid != "" {
+		client.UID = uid
+		client.SID = os.Getenv("MIXIN_SID")
+		client.PrivateKey = os.Getenv("MIXIN_PRIVATE_KEY")
+		if client.UID != "" && client.SID != "" && client.PrivateKey != "" {
+			client.Token = ""
+		}
+	}
 	state := db.NewStateRepo(dbConn.SQL)
 	snapRepo := db.NewSnapshotsRepo(dbConn.SQL)
 	ordersRepo := db.NewOrdersRepo(dbConn.SQL)
@@ -81,7 +102,7 @@ func main() {
 					if ct != nil {
 						creditedAt = ct.UTC()
 					}
-					_, _ = ordersRepo.SetDepositCreditedByMemo(ctx, s.Memo, s.SnapshotID, creditedAt, s.Amount, cfg.MixinBotUserID, s.AssetID)
+					_, _ = ordersRepo.SetDepositCreditedByMemo(ctx, s.Memo, s.SnapshotID, creditedAt, s.Amount, s.AssetID)
 				}
 			}
 

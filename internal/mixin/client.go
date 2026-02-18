@@ -12,17 +12,25 @@ import (
 
 type Client struct {
 	BaseURL string
-	Token   string
-	HTTP    *http.Client
+	// Auth via bot keystore (preferred)
+	UID        string
+	SID        string
+	PrivateKey string
+	Scope      string
+
+	// Legacy/simple token mode (optional)
+	Token string
+
+	HTTP *http.Client
 }
 
-func NewClient(baseURL, token string) *Client {
+func NewClient(baseURL string) *Client {
 	if baseURL == "" {
 		baseURL = "https://api.mixin.one"
 	}
 	return &Client{
 		BaseURL: baseURL,
-		Token:   token,
+		Scope:   "FULL",
 		HTTP:    &http.Client{Timeout: 15 * time.Second},
 	}
 }
@@ -32,8 +40,8 @@ type ListSnapshotsResponse struct {
 }
 
 // ListSnapshots calls Mixin snapshots API.
-// NOTE: Mixin auth is typically JWT-based; this uses a Bearer token placeholder.
-// Zed needs to confirm the correct auth header format.
+// Auth: if UID/SID/PrivateKey are set, signs an EdDSA JWT per Mixin docs.
+// Otherwise, if Token is set, uses Bearer Token.
 func (c *Client) ListSnapshots(ctx context.Context, limit int, offset string, assetID string) ([]Snapshot, error) {
 	u, err := url.Parse(c.BaseURL)
 	if err != nil {
@@ -52,11 +60,24 @@ func (c *Client) ListSnapshots(ctx context.Context, limit int, offset string, as
 	}
 	u.RawQuery = q.Encode()
 
+	uriForSig := u.Path
+	if u.RawQuery != "" {
+		uriForSig = uriForSig + "?" + u.RawQuery
+	}
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, err
 	}
-	if c.Token != "" {
+
+	// Auth header
+	if c.UID != "" && c.SID != "" && c.PrivateKey != "" {
+		tok, err := SignAuthenticationToken(c.UID, c.SID, c.PrivateKey, http.MethodGet, uriForSig, "", c.Scope)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+tok)
+	} else if c.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.Token)
 	}
 

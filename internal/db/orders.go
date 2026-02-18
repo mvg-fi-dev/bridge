@@ -113,13 +113,14 @@ LIMIT 1
 	return &o, nil
 }
 
-func (r *OrdersRepo) SetDepositCreditedByMemo(ctx context.Context, memo string, snapshotID string, creditedAt time.Time, amountCredited string, opponentID string, assetID string) (int64, error) {
-	// Update only if still awaiting deposit to keep idempotent.
+func (r *OrdersRepo) SetDepositCreditedByMemo(ctx context.Context, memo string, snapshotID string, creditedAt time.Time, amountCredited string, assetID string) (int64, error) {
+	// Mixin-internal transfer snapshots are already credited to the bot.
+	// Match by memo + asset_id. Do NOT require opponent_id (sender) since we may not know it in advance.
 	res, err := r.DB.ExecContext(ctx, `
 UPDATE orders
 SET
   status = ?,
-  deposit_txid = ?,
+  deposit_txid = COALESCE(deposit_txid, ?),
   deposit_tx_detected_at = COALESCE(deposit_tx_detected_at, ?),
   deposit_credited_at = COALESCE(deposit_credited_at, ?),
   amount_credited = COALESCE(amount_credited, ?),
@@ -127,7 +128,6 @@ SET
 WHERE
   status IN (?, ?, ?) AND
   mixin_pay_memo = ? AND
-  mixin_opponent_id = ? AND
   mixin_asset_id = ?
 `,
 		string(models.StatusDepositCredited),
@@ -140,7 +140,6 @@ WHERE
 		string(models.StatusDepositDetected),
 		string(models.StatusDepositPendingMixin),
 		memo,
-		opponentID,
 		assetID,
 	)
 	if err != nil {

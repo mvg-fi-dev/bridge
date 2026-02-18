@@ -72,7 +72,7 @@ func (h *MixinWebhookHandler) Handle(c *gin.Context) {
 
 	if h.DB != nil && snap.Memo != "" {
 		repo := db.NewOrdersRepo(h.DB)
-		_, _ = repo.SetDepositCreditedByMemo(c.Request.Context(), snap.Memo, snap.SnapshotID, creditedAt, snap.Amount, h.MixinBotUserID, snap.AssetID)
+		_, _ = repo.SetDepositCreditedByMemo(c.Request.Context(), snap.Memo, snap.SnapshotID, creditedAt, snap.Amount, snap.AssetID)
 	}
 
 	c.JSON(http.StatusOK, gin.H{"ok": true})
