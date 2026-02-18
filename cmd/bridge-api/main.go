@@ -2,27 +2,38 @@ package main
 
 import (
 	"log"
-	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/mvg-fi-dev/bridge/internal/api"
+	"github.com/mvg-fi-dev/bridge/internal/config"
+	"github.com/mvg-fi-dev/bridge/internal/db"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dbConn, err := db.Open(cfg.SQLitePath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer dbConn.SQL.Close()
+
+	if err := db.Migrate(dbConn.SQL); err != nil {
+		log.Fatal(err)
 	}
 
 	r := gin.New()
 	r.Use(gin.Recovery())
 
-	r.GET("/healthz", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-	})
+	s := &api.Server{MixinWebhookSecret: cfg.MixinWebhookSecret}
+	s.Register(r)
 
-	log.Printf("bridge-api listening on :%s", port)
-	if err := r.Run(":" + port); err != nil {
+	log.Printf("bridge-api listening on :%s", cfg.Port)
+	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatal(err)
 	}
 }
