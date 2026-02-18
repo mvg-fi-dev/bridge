@@ -1,17 +1,16 @@
-# Node
-node_modules/
+# Binaries
+bin/
 
 # Env
 .env
 
+# DB
+*.db
+
 # Logs
 *.log
 
-# Builds
-dist/
-build/
-
-# Local
+# OS
 .DS_Store
 
 # Keys
