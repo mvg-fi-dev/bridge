@@ -70,7 +70,7 @@ func (r *ReconcileExinSwapSnapshots) HandleSnapshot(ctx context.Context, s *mixi
 
 func (r *ReconcileExinSwapSnapshots) findOrderBySwapRef(ctx context.Context, swapRef string) (*models.Order, error) {
 	row := r.Orders.DB.QueryRowContext(ctx, `
-SELECT id FROM orders WHERE swap_ref = ? LIMIT 1
+SELECT id FROM orders WHERE exinswap_trace_id = ? LIMIT 1
 `, swapRef)
 	var id string
 	if err := row.Scan(&id); err != nil {
@@ -82,13 +82,13 @@ SELECT id FROM orders WHERE swap_ref = ? LIMIT 1
 	return r.Orders.GetByID(ctx, id)
 }
 
-// Helper to set swap_ref after submitting transfer; this enables reconciliation.
-func SetSwapRefOnOrder(ctx context.Context, orders *db.OrdersRepo, orderID string, swapRef string) error {
+// Helper to set exinswap_trace_id after submitting transfer; this enables reconciliation.
+func SetExinSwapTraceOnOrder(ctx context.Context, orders *db.OrdersRepo, orderID string, traceID string) error {
 	_, err := orders.DB.ExecContext(ctx, `
-UPDATE orders SET swap_ref = ?, updated_at = ? WHERE id = ?
-`, swapRef, time.Now().UTC().Format(time.RFC3339Nano), orderID)
+UPDATE orders SET exinswap_trace_id = ?, updated_at = ? WHERE id = ?
+`, traceID, time.Now().UTC().Format(time.RFC3339Nano), orderID)
 	if err != nil {
-		return fmt.Errorf("set swap_ref: %w", err)
+		return fmt.Errorf("set exinswap_trace_id: %w", err)
 	}
 	return nil
 }

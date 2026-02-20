@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS orders (
 
   final_out TEXT,
   swap_ref TEXT,
+  exinswap_trace_id TEXT,
   withdraw_txid TEXT,
   refund_txid TEXT
 );

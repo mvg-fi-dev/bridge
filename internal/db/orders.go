@@ -42,7 +42,7 @@ SELECT
   pay_window_seconds,
   mixin_opponent_id, mixin_asset_id, mixin_pay_memo, mixin_pay_url,
   deposit_txid, deposit_tx_detected_at, deposit_credited_at, amount_credited, refund_to_address,
-  final_out, swap_ref, withdraw_txid, refund_txid
+  final_out, swap_ref, exinswap_trace_id, withdraw_txid, refund_txid
 FROM orders
 WHERE public_id = ?
 LIMIT 1
@@ -54,7 +54,7 @@ LIMIT 1
 	var quoteExpiry sql.NullString
 	var depositTxID, depositDetectedAt, depositCreditedAt sql.NullString
 	var amountCredited, refundToAddress sql.NullString
-	var finalOut, swapRef, withdrawTxID, refundTxID sql.NullString
+	var finalOut, swapRef, exinTrace, withdrawTxID, refundTxID sql.NullString
 
 	if err := row.Scan(
 		&o.ID, &o.PublicID, &status, &createdAt, &updatedAt,
@@ -63,7 +63,7 @@ LIMIT 1
 		&o.PayWindowSeconds,
 		&o.MixinOpponentID, &o.MixinAssetID, &o.MixinPayMemo, &o.MixinPayURL,
 		&depositTxID, &depositDetectedAt, &depositCreditedAt, &amountCredited, &refundToAddress,
-		&finalOut, &swapRef, &withdrawTxID, &refundTxID,
+		&finalOut, &swapRef, &exinTrace, &withdrawTxID, &refundTxID,
 	); err != nil {
 		return nil, err
 	}
@@ -102,6 +102,9 @@ LIMIT 1
 	}
 	if swapRef.Valid {
 		o.SwapRef = &swapRef.String
+	}
+	if exinTrace.Valid {
+		o.ExinSwapTraceID = &exinTrace.String
 	}
 	if withdrawTxID.Valid {
 		o.WithdrawTxID = &withdrawTxID.String

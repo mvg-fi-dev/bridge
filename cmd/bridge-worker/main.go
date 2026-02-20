@@ -65,6 +65,12 @@ func main() {
 		}
 	}
 
+	// ExinSwap snapshot reconciler (result memo -> order state)
+	recSwap := executor.NewReconcileExinSwapSnapshots(ordersRepo)
+
+	// Withdrawal executor
+	execW := executor.NewWithdrawExecutor(ordersRepo, client)
+
 	log.Printf("bridge-worker polling mixin snapshots every %s", interval)
 
 	for {
@@ -98,8 +104,7 @@ func main() {
 				}
 
 				// Reconcile ExinSwap result memos (credits from ExinSwap bot back to us).
-				rec := executor.NewReconcileExinSwapSnapshots(ordersRepo)
-				rec.HandleSnapshot(ctx, internalSnap)
+				recSwap.HandleSnapshot(ctx, internalSnap)
 			}
 
 			// advance cursor to newest snapshot id we saw
@@ -110,7 +115,7 @@ func main() {
 			_ = state.Set(ctx, cursorKey, offset)
 		}
 
-			// Execute any deposit_credited orders.
+		// Execute any deposit_credited orders.
 		orders, err := ordersRepo.ListExecutable(ctx, 20)
 		if err != nil {
 			log.Printf("list executable err=%v", err)
@@ -123,7 +128,6 @@ func main() {
 		}
 
 		// Execute withdrawals.
-		execW := executor.NewWithdrawExecutor(ordersRepo, client)
 		wos, err := ordersRepo.ListWithdrawing(ctx, 20)
 		if err != nil {
 			log.Printf("list withdrawing err=%v", err)

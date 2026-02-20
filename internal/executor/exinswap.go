@@ -69,8 +69,8 @@ func (e *ExinSwapExecutor) ExecuteDepositCredited(ctx context.Context, o *models
 		return err
 	}
 
-	// Store swap_ref = traceID to help reconciliation when ExinSwap pays us back.
-	_ = SetSwapRefOnOrder(ctx, e.Orders, o.ID, traceID)
+	// Store exinswap_trace_id to help reconciliation when ExinSwap pays us back.
+	_ = SetExinSwapTraceOnOrder(ctx, e.Orders, o.ID, traceID)
 
 	return nil
 }

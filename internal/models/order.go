@@ -55,8 +55,9 @@ type Order struct {
 	RefundToAddress      *string
 
 	// Execution
-	FinalOut     *string
-	SwapRef      *string
-	WithdrawTxID *string
-	RefundTxID   *string
+	FinalOut        *string
+	SwapRef         *string
+	ExinSwapTraceID *string
+	WithdrawTxID    *string
+	RefundTxID      *string
 }
