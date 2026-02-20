@@ -94,8 +94,12 @@ func main() {
 				// Try match order by memo for Mixin-internal payments.
 				if s.Memo != "" {
 					creditedAt := s.CreatedAt.UTC()
-					_, _ = ordersRepo.SetDepositCreditedByMemo(ctx, s.Memo, s.SnapshotID, creditedAt, s.Amount, s.AssetID)
+					_, _ = ordersRepo.SetDepositCreditedByMemo(ctx, s.Memo, s.SnapshotID, creditedAt, s.Amount, s.AssetID, s.OpponentID)
 				}
+
+				// Reconcile ExinSwap result memos (credits from ExinSwap bot back to us).
+				rec := executor.NewReconcileExinSwapSnapshots(ordersRepo)
+				rec.HandleSnapshot(ctx, internalSnap)
 			}
 
 			// advance cursor to newest snapshot id we saw

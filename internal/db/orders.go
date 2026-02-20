@@ -113,7 +113,7 @@ LIMIT 1
 	return &o, nil
 }
 
-func (r *OrdersRepo) SetDepositCreditedByMemo(ctx context.Context, memo string, snapshotID string, creditedAt time.Time, amountCredited string, assetID string) (int64, error) {
+func (r *OrdersRepo) SetDepositCreditedByMemo(ctx context.Context, memo string, snapshotID string, creditedAt time.Time, amountCredited string, assetID string, opponentID string) (int64, error) {
 	// Mixin-internal transfer snapshots are already credited to the bot.
 	// Match by memo + asset_id. Do NOT require opponent_id (sender) since we may not know it in advance.
 	res, err := r.DB.ExecContext(ctx, `
@@ -124,6 +124,7 @@ SET
   deposit_tx_detected_at = COALESCE(deposit_tx_detected_at, ?),
   deposit_credited_at = COALESCE(deposit_credited_at, ?),
   amount_credited = COALESCE(amount_credited, ?),
+  refund_to_address = COALESCE(refund_to_address, ?),
   updated_at = ?
 WHERE
   status IN (?, ?, ?) AND
@@ -135,6 +136,7 @@ WHERE
 		creditedAt.Format(time.RFC3339Nano),
 		creditedAt.Format(time.RFC3339Nano),
 		amountCredited,
+		opponentID,
 		time.Now().UTC().Format(time.RFC3339Nano),
 		string(models.StatusAwaitingDeposit),
 		string(models.StatusDepositDetected),
