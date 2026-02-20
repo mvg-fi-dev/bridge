@@ -110,7 +110,7 @@ func main() {
 			_ = state.Set(ctx, cursorKey, offset)
 		}
 
-		// Execute any deposit_credited orders.
+			// Execute any deposit_credited orders.
 		orders, err := ordersRepo.ListExecutable(ctx, 20)
 		if err != nil {
 			log.Printf("list executable err=%v", err)
@@ -118,6 +118,19 @@ func main() {
 			for _, o := range orders {
 				if err := execSwap.ExecuteDepositCredited(ctx, o); err != nil {
 					log.Printf("execute order=%s err=%v", o.PublicID, err)
+				}
+			}
+		}
+
+		// Execute withdrawals.
+		execW := executor.NewWithdrawExecutor(ordersRepo, client)
+		wos, err := ordersRepo.ListWithdrawing(ctx, 20)
+		if err != nil {
+			log.Printf("list withdrawing err=%v", err)
+		} else {
+			for _, o := range wos {
+				if err := execW.ExecuteWithdrawing(ctx, o); err != nil {
+					log.Printf("withdraw order=%s err=%v", o.PublicID, err)
 				}
 			}
 		}
