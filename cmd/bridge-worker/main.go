@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/mvg-fi-dev/bridge/internal/config"
 	"github.com/mvg-fi-dev/bridge/internal/db"
+	"github.com/mvg-fi-dev/bridge/internal/executor"
 	"github.com/mvg-fi-dev/bridge/internal/mixin"
 )
 
@@ -55,10 +57,18 @@ func main() {
 
 	limit := 200
 
+	// ExinSwap executor (deposit_credited -> send transfer with memo)
+	execSwap := executor.NewExinSwapExecutor(ordersRepo, client)
+	if v := os.Getenv("EXINSWAP_LATEST_EXEC_SECONDS"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
+			execSwap.SwapTimeoutSeconds = n
+		}
+	}
+
 	log.Printf("bridge-worker polling mixin snapshots every %s", interval)
 
 	for {
-		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 		offset, _, _ := state.Get(ctx, cursorKey)
 
 		snaps, err := client.ListSafeSnapshots(ctx, limit, offset)
@@ -94,6 +104,18 @@ func main() {
 
 		if offset != "" {
 			_ = state.Set(ctx, cursorKey, offset)
+		}
+
+		// Execute any deposit_credited orders.
+		orders, err := ordersRepo.ListExecutable(ctx, 20)
+		if err != nil {
+			log.Printf("list executable err=%v", err)
+		} else {
+			for _, o := range orders {
+				if err := execSwap.ExecuteDepositCredited(ctx, o); err != nil {
+					log.Printf("execute order=%s err=%v", o.PublicID, err)
+				}
+			}
 		}
 
 		cancel()
