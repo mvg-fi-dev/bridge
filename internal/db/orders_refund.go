@@ -17,7 +17,7 @@ SET
   refund_amount = COALESCE(refund_amount, ?),
   refund_received_snapshot_id = COALESCE(refund_received_snapshot_id, ?),
   updated_at = ?
-WHERE id = ?
+WHERE id = ? AND status IN (?, ?)
 `,
 		string(models.StatusRefunding),
 		refundAssetID,
@@ -25,6 +25,8 @@ WHERE id = ?
 		refundReceivedSnapshotID,
 		time.Now().UTC().Format(time.RFC3339Nano),
 		orderID,
+		string(models.StatusExecutingSwap),
+		string(models.StatusDepositCredited),
 	)
 	return err
 }

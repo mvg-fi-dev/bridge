@@ -132,38 +132,67 @@ WHERE id = ? AND status = ?
 }
 
 func (r *OrdersRepo) MarkWithdrawing(ctx context.Context, orderID string, swapRef string, finalOut string) error {
+	// only advance from executing_swap
 	_, err := r.DB.ExecContext(ctx, `
 UPDATE orders
-SET status = ?, swap_ref = ?, final_out = ?, updated_at = ?
-WHERE id = ?
-`, string(models.StatusWithdrawing), swapRef, finalOut, time.Now().UTC().Format(time.RFC3339Nano), orderID)
+SET status = ?, swap_ref = COALESCE(swap_ref, ?), final_out = COALESCE(final_out, ?), updated_at = ?
+WHERE id = ? AND status = ?
+`,
+		string(models.StatusWithdrawing),
+		swapRef,
+		finalOut,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		orderID,
+		string(models.StatusExecutingSwap),
+	)
 	return err
 }
 
 func (r *OrdersRepo) MarkCompleted(ctx context.Context, orderID string, withdrawTxID string) error {
+	// only advance from withdrawing
 	_, err := r.DB.ExecContext(ctx, `
 UPDATE orders
-SET status = ?, withdraw_txid = ?, updated_at = ?
-WHERE id = ?
-`, string(models.StatusCompleted), withdrawTxID, time.Now().UTC().Format(time.RFC3339Nano), orderID)
+SET status = ?, withdraw_txid = COALESCE(withdraw_txid, ?), updated_at = ?
+WHERE id = ? AND status = ?
+`,
+		string(models.StatusCompleted),
+		withdrawTxID,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		orderID,
+		string(models.StatusWithdrawing),
+	)
 	return err
 }
 
 func (r *OrdersRepo) MarkRefunding(ctx context.Context, orderID string, reason string) error {
 	// reason not stored currently; keep as log-only for now.
+	// only advance from executing_swap (or deposit_credited for other refund reasons)
 	_, err := r.DB.ExecContext(ctx, `
 UPDATE orders
 SET status = ?, updated_at = ?
-WHERE id = ?
-`, string(models.StatusRefunding), time.Now().UTC().Format(time.RFC3339Nano), orderID)
+WHERE id = ? AND status IN (?, ?)
+`,
+		string(models.StatusRefunding),
+		time.Now().UTC().Format(time.RFC3339Nano),
+		orderID,
+		string(models.StatusExecutingSwap),
+		string(models.StatusDepositCredited),
+	)
 	return err
 }
 
 func (r *OrdersRepo) MarkRefunded(ctx context.Context, orderID string, refundTxID string) error {
+	// only advance from refunding
 	_, err := r.DB.ExecContext(ctx, `
 UPDATE orders
-SET status = ?, refund_txid = ?, updated_at = ?
-WHERE id = ?
-`, string(models.StatusRefunded), refundTxID, time.Now().UTC().Format(time.RFC3339Nano), orderID)
+SET status = ?, refund_txid = COALESCE(refund_txid, ?), updated_at = ?
+WHERE id = ? AND status = ?
+`,
+		string(models.StatusRefunded),
+		refundTxID,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		orderID,
+		string(models.StatusRefunding),
+	)
 	return err
 }

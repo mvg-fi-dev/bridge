@@ -32,17 +32,20 @@ Manual:
 4) deposit_pending_mixin → deposit_credited
 - when mixin credits balance
 
-5) deposit_credited → refunding
-- if computed `final_out < min_out`
+5) deposit_credited → executing_swap
+- submit swap execution (ExinSwap transfer with memo)
 
-6) deposit_credited → executing_swap
-- else
+6) executing_swap → withdrawing
+- swap ok (ExinSwap pays out target asset to our bot; reconcile by server memo TRACE)
 
-7) executing_swap → withdrawing
-- swap ok
+7) executing_swap → refunding
+- swap failed or refunded (ExinSwap refunds input asset to our bot; reconcile by server memo TRACE)
 
 8) withdrawing → completed
 - withdraw submitted (txid available)
+
+9) refunding → refunded
+- refund transfer submitted back to original payer (Mixin internal transfer)
 
 ## Notes
 
