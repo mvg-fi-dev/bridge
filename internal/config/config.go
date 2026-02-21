@@ -7,14 +7,17 @@ import (
 )
 
 type Config struct {
-	Port string
+	Port       string
 	SQLitePath string
 
 	PayWindowSeconds int64
 
 	// Mixin-first MVP payment
-	MixinBotUserID string
-	MixinWebhookSecret string
+	MixinBotUserID      string
+	MixinWebhookSecret  string
+
+	// ExinSwap execution policy
+	ExinSwapLatestExecSeconds int64
 }
 
 func Load() (*Config, error) {
@@ -31,6 +34,14 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid PAY_WINDOW_SECONDS: %w", err)
 	}
 	c.PayWindowSeconds = v
+
+	ews := getenv("EXINSWAP_LATEST_EXEC_SECONDS", "120")
+	vv, err := strconv.ParseInt(ews, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid EXINSWAP_LATEST_EXEC_SECONDS: %w", err)
+	}
+	c.ExinSwapLatestExecSeconds = vv
+
 	return c, nil
 }
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"log"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/mvg-fi-dev/bridge/internal/config"
@@ -59,10 +58,8 @@ func main() {
 
 	// ExinSwap executor (deposit_credited -> send transfer with memo)
 	execSwap := executor.NewExinSwapExecutor(ordersRepo, client)
-	if v := os.Getenv("EXINSWAP_LATEST_EXEC_SECONDS"); v != "" {
-		if n, err := strconv.ParseInt(v, 10, 64); err == nil && n > 0 {
-			execSwap.SwapTimeoutSeconds = n
-		}
+	if cfg.ExinSwapLatestExecSeconds > 0 {
+		execSwap.SwapTimeoutSeconds = cfg.ExinSwapLatestExecSeconds
 	}
 
 	// ExinSwap snapshot reconciler (result memo -> order state)
