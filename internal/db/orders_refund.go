@@ -8,8 +8,32 @@ import (
 	"github.com/mvg-fi-dev/bridge/internal/models"
 )
 
-func (r *OrdersRepo) GetByID(ctx context.Context, id string) (*models.Order, error) {
-	row := r.DB.QueryRowContext(ctx, `
+func (r *OrdersRepo) MarkRefundingWithDetails(ctx context.Context, orderID, refundAssetID, refundAmount, refundReceivedSnapshotID string) error {
+	_, err := r.DB.ExecContext(ctx, `
+UPDATE orders
+SET
+  status = ?,
+  refund_asset_id = COALESCE(refund_asset_id, ?),
+  refund_amount = COALESCE(refund_amount, ?),
+  refund_received_snapshot_id = COALESCE(refund_received_snapshot_id, ?),
+  updated_at = ?
+WHERE id = ?
+`,
+		string(models.StatusRefunding),
+		refundAssetID,
+		refundAmount,
+		refundReceivedSnapshotID,
+		time.Now().UTC().Format(time.RFC3339Nano),
+		orderID,
+	)
+	return err
+}
+
+func (r *OrdersRepo) ListRefunding(ctx context.Context, limit int) ([]*models.Order, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	rows, err := r.DB.QueryContext(ctx, `
 SELECT
   id, public_id, status, created_at, updated_at,
   source_chain, source_asset, amount_in, target_chain, target_asset, target_address,
@@ -20,10 +44,33 @@ SELECT
   final_out, swap_ref, exinswap_trace_id, withdraw_txid, refund_txid,
   refund_asset_id, refund_amount, refund_received_snapshot_id
 FROM orders
-WHERE id = ?
-LIMIT 1
-`, id)
+WHERE status = ? AND (refund_txid IS NULL OR refund_txid = '')
+ORDER BY updated_at ASC
+LIMIT ?
+`, string(models.StatusRefunding), limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
+	var out []*models.Order
+	for rows.Next() {
+		o, err := scanOrder(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// scanOrder scans the common orders row layout used by list/get queries.
+// rows can be *sql.Row or *sql.Rows via the RowScanner interface.
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+func scanOrder(rs rowScanner) (*models.Order, error) {
 	var o models.Order
 	var status string
 	var createdAt, updatedAt string
@@ -33,7 +80,7 @@ LIMIT 1
 	var finalOut, swapRef, exinTrace, withdrawTxID, refundTxID sql.NullString
 	var refundAssetID, refundAmount, refundReceivedSnapshotID sql.NullString
 
-	if err := row.Scan(
+	if err := rs.Scan(
 		&o.ID, &o.PublicID, &status, &createdAt, &updatedAt,
 		&o.SourceChain, &o.SourceAsset, &o.AmountIn, &o.TargetChain, &o.TargetAsset, &o.TargetAddress,
 		&o.EstimatedOut, &o.MinOut, &quoteExpiry,

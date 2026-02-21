@@ -55,8 +55,8 @@ func (r *ReconcileExinSwapSnapshots) HandleSnapshot(ctx context.Context, s *mixi
 	// For swap: success RL means ExinSwap released target asset to us.
 	// RF means refund.
 	if memo.Type == "RF" {
-		log.Printf("exinswap refund order=%s trace=%s", o.PublicID, memo.Trace)
-		_ = r.Orders.MarkRefunded(ctx, o.ID, s.SnapshotID)
+		log.Printf("exinswap refund order=%s trace=%s amount=%s asset=%s", o.PublicID, memo.Trace, s.Amount, s.AssetID)
+		_ = r.Orders.MarkRefundingWithDetails(ctx, o.ID, s.AssetID, s.Amount, s.SnapshotID)
 		return
 	}
 	if memo.Type == "RL" {

@@ -21,7 +21,8 @@ SELECT
   pay_window_seconds,
   mixin_opponent_id, mixin_asset_id, mixin_pay_memo, mixin_pay_url,
   deposit_txid, deposit_tx_detected_at, deposit_credited_at, amount_credited, refund_to_address,
-  final_out, swap_ref, exinswap_trace_id, withdraw_txid, refund_txid
+  final_out, swap_ref, exinswap_trace_id, withdraw_txid, refund_txid,
+  refund_asset_id, refund_amount, refund_received_snapshot_id
 FROM orders
 WHERE status = ?
 ORDER BY updated_at ASC
@@ -41,6 +42,7 @@ LIMIT ?
 		var depositTxID, depositDetectedAt, depositCreditedAt sql.NullString
 		var amountCredited, refundToAddress sql.NullString
 		var finalOut, swapRef, exinTrace, withdrawTxID, refundTxID sql.NullString
+		var refundAssetID, refundAmount, refundReceivedSnapshotID sql.NullString
 
 		if err := rows.Scan(
 			&o.ID, &o.PublicID, &status, &createdAt, &updatedAt,
@@ -50,6 +52,7 @@ LIMIT ?
 			&o.MixinOpponentID, &o.MixinAssetID, &o.MixinPayMemo, &o.MixinPayURL,
 			&depositTxID, &depositDetectedAt, &depositCreditedAt, &amountCredited, &refundToAddress,
 			&finalOut, &swapRef, &exinTrace, &withdrawTxID, &refundTxID,
+			&refundAssetID, &refundAmount, &refundReceivedSnapshotID,
 		); err != nil {
 			return nil, err
 		}
@@ -99,6 +102,15 @@ LIMIT ?
 		}
 		if refundTxID.Valid {
 			o.RefundTxID = &refundTxID.String
+		}
+		if refundAssetID.Valid {
+			o.RefundAssetID = &refundAssetID.String
+		}
+		if refundAmount.Valid {
+			o.RefundAmount = &refundAmount.String
+		}
+		if refundReceivedSnapshotID.Valid {
+			o.RefundReceivedSnapshotID = &refundReceivedSnapshotID.String
 		}
 
 		out = append(out, &o)

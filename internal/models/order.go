@@ -60,4 +60,7 @@ type Order struct {
 	ExinSwapTraceID *string
 	WithdrawTxID    *string
 	RefundTxID      *string
+	RefundAssetID   *string
+	RefundAmount    *string
+	RefundReceivedSnapshotID *string
 }

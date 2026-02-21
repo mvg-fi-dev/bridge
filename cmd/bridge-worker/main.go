@@ -70,6 +70,8 @@ func main() {
 
 	// Withdrawal executor
 	execW := executor.NewWithdrawExecutor(ordersRepo, client)
+	// Refund executor
+	execR := executor.NewRefundExecutor(ordersRepo, client)
 
 	log.Printf("bridge-worker polling mixin snapshots every %s", interval)
 
@@ -135,6 +137,18 @@ func main() {
 			for _, o := range wos {
 				if err := execW.ExecuteWithdrawing(ctx, o); err != nil {
 					log.Printf("withdraw order=%s err=%v", o.PublicID, err)
+				}
+			}
+		}
+
+		// Execute refunds (when we decide to actively refund).
+		ros, err := ordersRepo.ListRefunding(ctx, 20)
+		if err != nil {
+			log.Printf("list refunding err=%v", err)
+		} else {
+			for _, o := range ros {
+				if err := execR.ExecuteRefunding(ctx, o); err != nil {
+					log.Printf("refund order=%s err=%v", o.PublicID, err)
 				}
 			}
 		}

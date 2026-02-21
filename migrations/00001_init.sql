@@ -35,7 +35,10 @@ CREATE TABLE IF NOT EXISTS orders (
   swap_ref TEXT,
   exinswap_trace_id TEXT,
   withdraw_txid TEXT,
-  refund_txid TEXT
+  refund_txid TEXT,
+  refund_asset_id TEXT,
+  refund_amount TEXT,
+  refund_received_snapshot_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
